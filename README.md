@@ -1,4 +1,4 @@
-# Go1 Sim-to-Real Locomotion Starter Kit
+# A1 Sim-to-Real Locomotion Starter Kit
 
 
 # Table of contents
@@ -48,17 +48,17 @@ Rudin, Robotic Systems Lab, ETH Zurich. All redistributed code retains its
 original [license](LICENSES/legged_gym/LICENSE).
 
 Our initial release provides the following features:
-* Train reinforcement learning policies for the Go1 robot using PPO, IsaacGym, Domain Randomization and Parametric Auxiliary Rewards.
+* Train reinforcement learning policies for the A1 robot using PPO, IsaacGym, Domain Randomization and Parametric Auxiliary Rewards.
 * Evaluate a pretrained parametric auxiliary reward policy in simulation.
-* Deploy learned policies on the Go1 using the `unitree_legged_sdk`.
+* Deploy learned policies on the A1 using the `unitree_legged_sdk`.
 
 ## System Requirements <a name="requirements"></a>
 
 **Simulated Training and Evaluation**: Isaac Gym requires an NVIDIA GPU. To train in the default configuration, we recommend a GPU with at least 10GB of VRAM. The code can run on a smaller GPU if you decrease the number of parallel environments (`Cfg.env.num_envs`). However, training will be slower with fewer environments.
 
-**Hardware Deployment**: We provide deployment code for the Unitree Go1 Edu robot. This relatively low-cost, commercially available quadruped can be purchased here: https://shop.unitree.com/. You will need the Edu version of the robot to run and customize your locomotion controller.
+**Hardware Deployment**: We provide deployment code for the Unitree A1 robot. This relatively low-cost, commercially available quadruped can be purchased here: https://shop.unitree.com/. You will need the Edu version of the robot to run and customize your locomotion controller.
 
-<b>Users are advised to follow Unitree's recommendations for safety while using the Go1 in low-level control mode. This means hanging up the robot and keeping it away from people and obstacles. Use our code at your own risk; we do not take responsibility for any damage.</b>
+<b>Users are advised to follow Unitree's recommendations for safety while using the A1 in low-level control mode. This means hanging up the robot and keeping it away from people and obstacles. Use our code at your own risk; we do not take responsibility for any damage.</b>
 
 ## Training a Model <a name="simulation"></a>
 
@@ -89,7 +89,7 @@ pip3 install torch==1.10.0+cu113 torchvision==0.11.1+cu113 torchaudio==0.10.0+cu
     ```
 5. For troubleshooting check docs `isaacgym/docs/index.html`
 
-#### Install the `go1_gym` package
+#### Install the `a1_gym` package
 
 In this repository, run `pip install -e .`
 
@@ -108,8 +108,8 @@ The GUI is off by default. To turn it on, set `headless=False` in `test.py`'s ma
 
 
 **CODE STRUCTURE** The main environment for simulating a legged robot is
-in [legged_robot.py](go1_gym/envs/base/legged_robot.py). The default configuration parameters including reward
-weightings are defined in [legged_robot_config.py::Cfg](go1_gym/envs/base/legged_robot_config.py).
+in [legged_robot.py](a1_gym/envs/base/legged_robot.py). The default configuration parameters including reward
+weightings are defined in [legged_robot_config.py::Cfg](a1_gym/envs/base/legged_robot_config.py).
 
 There are three scripts in the [scripts](scripts/) directory:
 
@@ -129,7 +129,7 @@ pretrained agent checkpoint in the [./runs/pretrain-v0](runs/pretrain-v0) direct
 
 ### Training and Logging <a name="training"></a>
 
-To train the Go1 controller from [Walk these Ways](https://sites.google.com/view/gait-conditioned-rl/), run: 
+To train the A1 controller from [Walk these Ways](https://sites.google.com/view/gait-conditioned-rl/), run: 
 
 ```bash
 python scripts/train.py
@@ -182,7 +182,7 @@ The first step is to connect your development machine to the robot using etherne
 Once you have confirmed the robot is connected, run the following command on your computer to transfer files to the robot. The first time you run it, the script will download and transfer the zipped docker image for development on the robot (`deployment_image.tar`). This file is quite large (3.5GB), but it only needs to be downloaded and transferred once.
 
 ```
-cd go1_gym_deploy/scripts && ./send_to_unitree.sh
+cd a1_gym_deploy/scripts && ./send_to_unitree.sh
 ```
 
 Next, you will log onto the robot's onboard computer and install the docker environment. To enter the onboard computer, the command is:
@@ -194,7 +194,7 @@ ssh unitree@192.168.123.15
 Now, run the following commands on the robot's onboard computer:
 
 ```
-cd ~/go1_gym/go1_gym_deploy/installer
+cd ~/a1_gym/a1_gym_deploy/installer
 ./install_deployment_code.sh
 ```
 
@@ -205,17 +205,17 @@ The installer will automatically unzip and install the docker image containing t
 
 Place the robot into damping mode. The control sequence is: [L1+B], [L1+A], [L1+L2+START]. After this, the robot should sit on the ground and the joints should move freely. 
 
-Now, ssh to `unitree@192.168.123.15` and run the following two commands to start the controller. <b>This will operate the robot in low-level control mode. Make sure your Go1 is hung up.</b>
+Now, ssh to `unitree@192.168.123.15` and run the following two commands to start the controller. <b>This will operate the robot in low-level control mode. Make sure your A1 is hung up.</b>
 
 First:
 ```
-cd ~/go1_gym/go1_gym_deploy/autostart
+cd ~/a1_gym/a1_gym_deploy/autostart
 ./start_unitree_sdk.sh
 ```
 
 Second:
 ```
-cd ~/go1_gym/go1_gym_deploy/docker
+cd ~/a1_gym/a1_gym_deploy/docker
 sudo make autostart
 ```
 

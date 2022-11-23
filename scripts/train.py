@@ -1,22 +1,22 @@
-def train_go1(headless=True):
+def train_a1(headless=True):
 
     import isaacgym
     assert isaacgym
     import torch
 
-    from go1_gym.envs.base.legged_robot_config import Cfg
-    from go1_gym.envs.go1.go1_config import config_go1
-    from go1_gym.envs.go1.velocity_tracking import VelocityTrackingEasyEnv
+    from a1_gym.envs.base.legged_robot_config import Cfg
+    from a1_gym.envs.a1.a1_config import config_a1
+    from a1_gym.envs.a1.velocity_tracking import VelocityTrackingEasyEnv
 
     from ml_logger import logger
 
-    from go1_gym_learn.ppo_cse import Runner
-    from go1_gym.envs.wrappers.history_wrapper import HistoryWrapper
-    from go1_gym_learn.ppo_cse.actor_critic import AC_Args
-    from go1_gym_learn.ppo_cse.ppo import PPO_Args
-    from go1_gym_learn.ppo_cse import RunnerArgs
+    from a1_gym_learn.ppo_cse import Runner
+    from a1_gym.envs.wrappers.history_wrapper import HistoryWrapper
+    from a1_gym_learn.ppo_cse.actor_critic import AC_Args
+    from a1_gym_learn.ppo_cse.ppo import PPO_Args
+    from a1_gym_learn.ppo_cse import RunnerArgs
 
-    config_go1(Cfg)
+    config_a1(Cfg)
 
     Cfg.commands.num_lin_vel_bins = 30
     Cfg.commands.num_ang_vel_bins = 30
@@ -219,7 +219,7 @@ def train_go1(headless=True):
 if __name__ == '__main__':
     from pathlib import Path
     from ml_logger import logger
-    from go1_gym import MINI_GYM_ROOT_DIR
+    from a1_gym import MINI_GYM_ROOT_DIR
 
     stem = Path(__file__).stem
     logger.configure(logger.utcnow(f'gait-conditioned-agility/%Y-%m-%d/{stem}/%H%M%S.%f'),
@@ -253,4 +253,4 @@ if __name__ == '__main__':
                 """, filename=".charts.yml", dedent=True)
 
     # to see the environment rendering, set headless=False
-    train_go1(headless=False)
+    train_a1(headless=False)
