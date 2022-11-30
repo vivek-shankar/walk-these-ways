@@ -30,7 +30,7 @@ def load_policy(logdir):
 
 
 def load_env(label, headless=False):
-    dirs = glob.glob(f"../runs/{label}/*")
+    dirs = glob.glob(f"./runs/{label}/*")
     logdir = sorted(dirs)[0]
 
     with open(logdir + "/parameters.pkl", 'rb') as file:
@@ -70,7 +70,7 @@ def load_env(label, headless=False):
 
     Cfg.domain_rand.lag_timesteps = 6
     Cfg.domain_rand.randomize_lag_timesteps = True
-    Cfg.control.control_type = "actuator_net"
+    Cfg.control.control_type = "P"
 
     from a1_gym.envs.wrappers.history_wrapper import HistoryWrapper
 
@@ -94,7 +94,7 @@ def play_a1(headless=True):
     import glob
     import os
 
-    label = "gait-conditioned-agility/pretrain-v0/train"
+    label = "gait-conditioned-agility/2022-11-28/train"
 
     env, policy = load_env(label, headless=headless)
 
@@ -104,9 +104,9 @@ def play_a1(headless=True):
              "bounding": [0, 0.5, 0],
              "pacing": [0, 0, 0.5]}
 
-    x_vel_cmd, y_vel_cmd, yaw_vel_cmd = 1.5, 0.0, 0.0
+    x_vel_cmd, y_vel_cmd, yaw_vel_cmd = 2.0, 0.0, 0.0
     body_height_cmd = 0.0
-    step_frequency_cmd = 3.0
+    step_frequency_cmd = 4.0
     gait = torch.tensor(gaits["trotting"])
     footswing_height_cmd = 0.08
     pitch_cmd = 0.0
