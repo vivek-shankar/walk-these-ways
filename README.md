@@ -1,4 +1,5 @@
 # A1 Sim-to-Real Locomotion Starter Kit
+**This is the MoB controller code of A1 adapted from [Improbable-AI/walk-these-ways](https://github.com/Improbable-AI/walk-these-ways), the performance of this controller is really amazing.**
 ## System Requirements <a name="requirements"></a>
 
 **Simulated Training and Evaluation**: Isaac Gym requires an NVIDIA GPU. To train in the default configuration, we recommend a GPU with at least 10GB of VRAM. The code can run on a smaller GPU if you decrease the number of parallel environments (`Cfg.env.num_envs`). However, training will be slower with fewer environments.
