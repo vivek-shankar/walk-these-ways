@@ -38,6 +38,7 @@ def load_env(label, headless=False):
         print(pkl_cfg.keys())
         cfg = pkl_cfg["Cfg"]
         print(cfg.keys())
+        print(cfg)
 
         for key, value in cfg.items():
             if hasattr(Cfg, key):
@@ -94,19 +95,20 @@ def play_a1(headless=True):
     import glob
     import os
 
-    label = "gait-conditioned-agility/2022-11-28/train"
+    label = "gait-conditioned-agility/2022-12-02/train"
 
     env, policy = load_env(label, headless=headless)
-
+    print(env.p_gains)
+    print(env.d_gains)
     num_eval_steps = 250
     gaits = {"pronking": [0, 0, 0],
              "trotting": [0.5, 0, 0],
              "bounding": [0, 0.5, 0],
              "pacing": [0, 0, 0.5]}
 
-    x_vel_cmd, y_vel_cmd, yaw_vel_cmd = 2.0, 0.0, 0.0
+    x_vel_cmd, y_vel_cmd, yaw_vel_cmd = 1.5, 0.0, 0.0
     body_height_cmd = 0.0
-    step_frequency_cmd = 4.0
+    step_frequency_cmd = 3.0
     gait = torch.tensor(gaits["trotting"])
     footswing_height_cmd = 0.08
     pitch_cmd = 0.0
@@ -118,7 +120,8 @@ def play_a1(headless=True):
     joint_positions = np.zeros((num_eval_steps, 12))
 
     obs = env.reset()
-
+    print(obs['obs'].shape)
+    print(obs['obs_history'].shape)
     for i in tqdm(range(num_eval_steps)):
         with torch.no_grad():
             actions = policy(obs)

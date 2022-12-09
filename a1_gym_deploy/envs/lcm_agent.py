@@ -3,7 +3,6 @@ import time
 import lcm
 import numpy as np
 import torch
-import cv2
 
 from a1_gym_deploy.lcm_types.pd_tau_targets_lcmt import pd_tau_targets_lcmt
 
@@ -44,7 +43,7 @@ class LCMAgent():
         self.num_privileged_obs = self.cfg["env"]["num_privileged_obs"]
         self.num_actions = self.cfg["env"]["num_actions"]
         self.num_commands = self.cfg["commands"]["num_commands"]
-        self.device = 'cpu'
+        self.device = 'cuda:0'
 
         if "obs_scales" in self.cfg.keys():
             self.obs_scales = self.cfg["obs_scales"]
@@ -262,21 +261,6 @@ class LCMAgent():
         self.clock_inputs[:, 2] = torch.sin(2 * np.pi * self.foot_indices[2])
         self.clock_inputs[:, 3] = torch.sin(2 * np.pi * self.foot_indices[3])
 
-
-        images = {'front': self.se.get_camera_front(),
-                  'bottom': self.se.get_camera_bottom(),
-                  'rear': self.se.get_camera_rear(),
-                  'left': self.se.get_camera_left(),
-                  'right': self.se.get_camera_right()
-                  }
-        downscale_factor = 2
-        temporal_downscale = 3
-
-        for k, v in images.items():
-            if images[k] is not None:
-                images[k] = cv2.resize(images[k], dsize=(images[k].shape[0]//downscale_factor, images[k].shape[1]//downscale_factor), interpolation=cv2.INTER_CUBIC)
-            if self.timestep % temporal_downscale != 0:
-                images[k] = None
         #print(self.commands)
 
         infos = {"joint_pos": self.dof_pos[np.newaxis, :],
@@ -290,11 +274,6 @@ class LCMAgent():
                  "body_linear_vel_cmd": self.commands[:, 0:2],
                  "body_angular_vel_cmd": self.commands[:, 2:],
                  "privileged_obs": None,
-                 "camera_image_front": images['front'],
-                 "camera_image_bottom": images['bottom'],
-                 "camera_image_rear": images['rear'],
-                 "camera_image_left": images['left'],
-                 "camera_image_right": images['right'],
                  }
 
         self.timestep += 1

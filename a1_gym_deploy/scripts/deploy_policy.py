@@ -16,6 +16,7 @@ def load_and_run_policy(label, experiment_name, probe_policy_label=None, max_vel
     # load agent
     dirs = glob.glob(f"../../runs/{label}/*")
     logdir = sorted(dirs)[0]
+    print(logdir)
 
     with open(logdir+"/parameters.pkl", 'rb') as file:
         pkl_cfg = pkl.load(file)
@@ -23,6 +24,7 @@ def load_and_run_policy(label, experiment_name, probe_policy_label=None, max_vel
         cfg = pkl_cfg["Cfg"]
         print(cfg.keys())
 
+    print('Config successfully loaded!')
 
     se = StateEstimator(lc)
 
@@ -34,8 +36,11 @@ def load_and_run_policy(label, experiment_name, probe_policy_label=None, max_vel
 
     from a1_gym_deploy.envs.history_wrapper import HistoryWrapper
     hardware_agent = HistoryWrapper(hardware_agent)
+    print('Agent successfully created!')
 
     policy = load_policy(logdir)
+    print('Policy successfully loaded!')
+    print(se.get_gravity_vector())
 
     if probe_policy_label is not None:
         # load agent
@@ -66,22 +71,22 @@ def load_and_run_policy(label, experiment_name, probe_policy_label=None, max_vel
     deployment_runner.run(max_steps=max_steps, logging=True)
 
 def load_policy(logdir):
-    body = torch.jit.load(logdir + '/checkpoints/body_latest.jit')
+    body = torch.jit.load(logdir + '/checkpoints/body_latest.jit').to('cuda:0')
     import os
-    adaptation_module = torch.jit.load(logdir + '/checkpoints/adaptation_module_latest.jit')
+    adaptation_module = torch.jit.load(logdir + '/checkpoints/body_latest.jit').to('cuda:0')
 
     def policy(obs, info):
         i = 0
-        latent = adaptation_module.forward(obs["obs_history"].to('cpu'))
-        action = body.forward(torch.cat((obs["obs_history"].to('cpu'), latent), dim=-1))
-        info['latent'] = latent
+        latent = adaptation_module.forward(obs["obs_history"].to('cuda:0'))
+        action = body.forward(torch.cat((obs["obs_history"].to('cuda:0'), latent), dim=-1)).to('cpu')
+        info['latent'] = latent.to('cpu')
         return action
 
     return policy
 
 
 if __name__ == '__main__':
-    label = "gait-conditioned-agility/pretrain-v0/train"
+    label = "gait-conditioned-agility/pretain-a1/train"
 
     probe_policy_label = None
 
