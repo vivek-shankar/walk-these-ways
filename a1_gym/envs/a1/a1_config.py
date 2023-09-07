@@ -9,22 +9,38 @@ def config_a1(Cnfg: Union[Cfg, Meta]):
     _ = Cnfg.init_state
 
     _.pos = [0.0, 0.0, 0.34]  # x,y,z [m]
-    _.default_joint_angles = {  # = target angles [rad] when action = 0.0
-        'FL_hip_joint': 0.1,  # [rad]
-        'RL_hip_joint': 0.1,  # [rad]
-        'FR_hip_joint': -0.1,  # [rad]
-        'RR_hip_joint': -0.1,  # [rad]
+    # _.default_joint_angles = {  # = target angles [rad] when action = 0.0
+    #     'FL_hip_joint': 0.1,  # [rad]
+    #     'RL_hip_joint': 0.1,  # [rad]
+    #     'FR_hip_joint': -0.1,  # [rad]
+    #     'RR_hip_joint': -0.1,  # [rad]
 
-        'FL_thigh_joint': 0.8,  # [rad]
-        'RL_thigh_joint': 1.,  # [rad]
-        'FR_thigh_joint': 0.8,  # [rad]
-        'RR_thigh_joint': 1.,  # [rad]
+    #     'FL_thigh_joint': 0.8,  # [rad]
+    #     'RL_thigh_joint': 1.,  # [rad]
+    #     'FR_thigh_joint': 0.8,  # [rad]
+    #     'RR_thigh_joint': 1.,  # [rad]
 
-        'FL_calf_joint': -1.5,  # [rad]
-        'RL_calf_joint': -1.5,  # [rad]
-        'FR_calf_joint': -1.5,  # [rad]
-        'RR_calf_joint': -1.5  # [rad]
-    }
+    #     'FL_calf_joint': -1.5,  # [rad]
+    #     'RL_calf_joint': -1.5,  # [rad]
+    #     'FR_calf_joint': -1.5,  # [rad]
+    #     'RR_calf_joint': -1.5  # [rad]
+    # }
+    _.default_joint_angles = { # = target angles [rad] when action = 0.0
+            'FL_hip_joint': 0.0,   # [rad]
+            'RL_hip_joint': 0.0,   # [rad]
+            'FR_hip_joint': 0.0,   # [rad]
+            'RR_hip_joint': 0.0,   # [rad]
+
+            'FL_thigh_joint': 0.8, # [rad]
+            'RL_thigh_joint': 0.8, # [rad]
+            'FR_thigh_joint': 0.8, # [rad]
+            'RR_thigh_joint': 0.8, # [rad]
+
+            'FL_calf_joint': -1.5, # [rad]
+            'RL_calf_joint': -1.5, # [rad]
+            'FR_calf_joint': -1.5, # [rad]
+            'RR_calf_joint': -1.5, # [rad]
+        }
 
     _ = Cnfg.control
     _.control_type = 'P'

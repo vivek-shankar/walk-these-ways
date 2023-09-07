@@ -3,6 +3,7 @@ import isaacgym
 assert isaacgym
 import torch
 import numpy as np
+import h5py
 
 import glob
 import pickle as pkl
@@ -15,14 +16,13 @@ from a1_gym.envs.a1.velocity_tracking import VelocityTrackingEasyEnv
 from tqdm import tqdm
 
 def load_policy(logdir):
-    body = torch.jit.load(logdir + '/checkpoints/body_latest.jit')
+    body = torch.jit.load(logdir + '/checkpoints/body_latest.jit').to('cuda:0')
     import os
-    adaptation_module = torch.jit.load(logdir + '/checkpoints/adaptation_module_latest.jit')
-
+    adaptation_module = torch.jit.load(logdir + '/checkpoints/adaptation_module_latest.jit').to('cuda:0')
     def policy(obs, info={}):
         i = 0
-        latent = adaptation_module.forward(obs["obs_history"].to('cpu'))
-        action = body.forward(torch.cat((obs["obs_history"].to('cpu'), latent), dim=-1))
+        latent = adaptation_module.forward(obs["obs_history"].to('cuda:0'))
+        action = body.forward(torch.cat((obs["obs_history"].to('cuda:0'), latent), dim=-1))
         info['latent'] = latent
         return action
 
@@ -31,7 +31,7 @@ def load_policy(logdir):
 
 def load_env(label, headless=False):
     dirs = glob.glob(f"./runs/{label}/*")
-    logdir = sorted(dirs)[0]
+    logdir = sorted(dirs)[-1]
 
     with open(logdir + "/parameters.pkl", 'rb') as file:
         pkl_cfg = pkl.load(file)
@@ -73,6 +73,8 @@ def load_env(label, headless=False):
     Cfg.domain_rand.randomize_lag_timesteps = True
     Cfg.control.control_type = "P"
 
+    Cfg.asset.flip_visual_attachments = True
+
     from a1_gym.envs.wrappers.history_wrapper import HistoryWrapper
 
     env = VelocityTrackingEasyEnv(sim_device='cuda:0', headless=False, cfg=Cfg)
@@ -87,7 +89,7 @@ def load_env(label, headless=False):
     return env, policy
 
 
-def play_a1(headless=True):
+def play_a1(headless=True, x_vel_cmds=[-1.0, -0.5, 0.5, 1.0], y_vel_cmds=[-1.0, -0.5, 0.5, 1.0], yaw_vel_cmds=[-1.0, -0.5, 0.5, 1.0]):
     from ml_logger import logger
 
     from pathlib import Path
@@ -95,71 +97,181 @@ def play_a1(headless=True):
     import glob
     import os
 
-    label = "gait-conditioned-agility/2022-12-02/train"
+    label = "gait-conditioned-agility/2023-09-04/train"
 
     env, policy = load_env(label, headless=headless)
     print(env.p_gains)
     print(env.d_gains)
-    num_eval_steps = 250
+    num_eval_steps = 2500
     gaits = {"pronking": [0, 0, 0],
              "trotting": [0.5, 0, 0],
              "bounding": [0, 0.5, 0],
              "pacing": [0, 0, 0.5]}
 
-    x_vel_cmd, y_vel_cmd, yaw_vel_cmd = 1.5, 0.0, 0.0
+    # x_vel_cmd, y_vel_cmd, yaw_vel_cmd = 1.0, 0.0, 0.0
     body_height_cmd = 0.0
     step_frequency_cmd = 3.0
     gait = torch.tensor(gaits["trotting"])
-    footswing_height_cmd = 0.08
+    footswing_height_cmd = 0.12
     pitch_cmd = 0.0
     roll_cmd = 0.0
     stance_width_cmd = 0.25
 
-    measured_x_vels = np.zeros(num_eval_steps)
-    target_x_vels = np.ones(num_eval_steps) * x_vel_cmd
-    joint_positions = np.zeros((num_eval_steps, 12))
+    # measured_x_vels = np.zeros(num_eval_steps)
+    # target_x_vels = np.ones(num_eval_steps) * x_vel_cmd
+    # joint_positions = np.zeros((num_eval_steps, 12))
+    # joint_vel = np.zeros((num_eval_steps, 12))
+    # base_lin_vel = np.zeros((num_eval_steps, 3))
+    # base_ang_vel = np.zeros((num_eval_steps, 3))
+    # base_height = np.zeros((num_eval_steps, 1))
 
-    obs = env.reset()
-    print(obs['obs'].shape)
-    print(obs['obs_history'].shape)
-    for i in tqdm(range(num_eval_steps)):
-        with torch.no_grad():
-            actions = policy(obs)
-        env.commands[:, 0] = x_vel_cmd
-        env.commands[:, 1] = y_vel_cmd
-        env.commands[:, 2] = yaw_vel_cmd
-        env.commands[:, 3] = body_height_cmd
-        env.commands[:, 4] = step_frequency_cmd
-        env.commands[:, 5:8] = gait
-        env.commands[:, 8] = 0.5
-        env.commands[:, 9] = footswing_height_cmd
-        env.commands[:, 10] = pitch_cmd
-        env.commands[:, 11] = roll_cmd
-        env.commands[:, 12] = stance_width_cmd
-        obs, rew, done, info = env.step(actions)
+    for x_vel_cmd in x_vel_cmds:
+        y_vel_cmd = 0.0
+        yaw_vel_cmd = 0.0
+        measured_x_vels = np.zeros(num_eval_steps)
+        target_x_vels = np.ones(num_eval_steps) * x_vel_cmd
+        joint_positions = np.zeros((num_eval_steps, 12))
+        joint_vel = np.zeros((num_eval_steps, 12))
+        base_lin_vel = np.zeros((num_eval_steps, 3))
+        base_ang_vel = np.zeros((num_eval_steps, 3))
+        base_height = np.zeros((num_eval_steps, 1))
 
-        measured_x_vels[i] = env.base_lin_vel[0, 0]
-        joint_positions[i] = env.dof_pos[0, :].cpu()
+        obs = env.reset()
+        for i in tqdm(range(num_eval_steps)):
+            with torch.no_grad():
+                actions = policy(obs)
+            env.commands[:, 0] = x_vel_cmd
+            env.commands[:, 1] = y_vel_cmd
+            env.commands[:, 2] = yaw_vel_cmd
+            env.commands[:, 3] = body_height_cmd
+            env.commands[:, 4] = step_frequency_cmd
+            env.commands[:, 5:8] = gait
+            env.commands[:, 8] = 0.5
+            env.commands[:, 9] = footswing_height_cmd
+            env.commands[:, 10] = pitch_cmd
+            env.commands[:, 11] = roll_cmd
+            env.commands[:, 12] = stance_width_cmd
+            obs, rew, done, info = env.step(actions)
+
+            measured_x_vels[i] = env.base_lin_vel[0, 0]
+            joint_positions[i] = env.dof_pos[0, :].cpu()
+            joint_vel[i] = env.dof_vel[0, :].cpu()
+            base_lin_vel[i] = env.base_lin_vel[0, :].cpu()
+            base_ang_vel[i] = env.base_ang_vel[0, :].cpu()
+            base_height[i] = env.root_states[:, 2:3].cpu()
+            # print(base_height[i])
+        
+
+        with h5py.File("./rl_datatset_x_vel{:.2f}_y_vel{:.2f}_yaw_vel{:.2f}.h5".format(x_vel_cmd, y_vel_cmd, yaw_vel_cmd), "w") as hf:
+            transitions = np.concatenate([joint_positions, joint_vel, base_lin_vel, base_ang_vel, base_height], axis=-1)
+            concated_transitions = np.concatenate([transitions[:-1], transitions[1:]], axis=-1)
+            hf.create_dataset("transitions", data=concated_transitions)
+
+    for y_vel_cmd in y_vel_cmds:
+        x_vel_cmd = 0.0
+        yaw_vel_cmd = 0.0
+        measured_x_vels = np.zeros(num_eval_steps)
+        target_x_vels = np.ones(num_eval_steps) * x_vel_cmd
+        joint_positions = np.zeros((num_eval_steps, 12))
+        joint_vel = np.zeros((num_eval_steps, 12))
+        base_lin_vel = np.zeros((num_eval_steps, 3))
+        base_ang_vel = np.zeros((num_eval_steps, 3))
+        base_height = np.zeros((num_eval_steps, 1))
+
+        obs = env.reset()
+        for i in tqdm(range(num_eval_steps)):
+            with torch.no_grad():
+                actions = policy(obs)
+            env.commands[:, 0] = x_vel_cmd
+            env.commands[:, 1] = y_vel_cmd
+            env.commands[:, 2] = yaw_vel_cmd
+            env.commands[:, 3] = body_height_cmd
+            env.commands[:, 4] = step_frequency_cmd
+            env.commands[:, 5:8] = gait
+            env.commands[:, 8] = 0.5
+            env.commands[:, 9] = footswing_height_cmd
+            env.commands[:, 10] = pitch_cmd
+            env.commands[:, 11] = roll_cmd
+            env.commands[:, 12] = stance_width_cmd
+            obs, rew, done, info = env.step(actions)
+
+            measured_x_vels[i] = env.base_lin_vel[0, 0]
+            joint_positions[i] = env.dof_pos[0, :].cpu()
+            joint_vel[i] = env.dof_vel[0, :].cpu()
+            base_lin_vel[i] = env.base_lin_vel[0, :].cpu()
+            base_ang_vel[i] = env.base_ang_vel[0, :].cpu()
+            base_height[i] = env.root_states[:, 2:3].cpu()
+            # print(base_height[i])
+        
+
+        with h5py.File("./rl_datatset_x_vel{:.2f}_y_vel{:.2f}_yaw_vel{:.2f}.h5".format(x_vel_cmd, y_vel_cmd, yaw_vel_cmd), "w") as hf:
+            transitions = np.concatenate([joint_positions, joint_vel, base_lin_vel, base_ang_vel, base_height], axis=-1)
+            concated_transitions = np.concatenate([transitions[:-1], transitions[1:]], axis=-1)
+            hf.create_dataset("transitions", data=concated_transitions)
+
+    for yaw_vel_cmd in yaw_vel_cmds:
+        x_vel_cmd = 0.0
+        y_vel_cmd = 0.0
+        measured_x_vels = np.zeros(num_eval_steps)
+        target_x_vels = np.ones(num_eval_steps) * x_vel_cmd
+        joint_positions = np.zeros((num_eval_steps, 12))
+        joint_vel = np.zeros((num_eval_steps, 12))
+        base_lin_vel = np.zeros((num_eval_steps, 3))
+        base_ang_vel = np.zeros((num_eval_steps, 3))
+        base_height = np.zeros((num_eval_steps, 1))
+
+        obs = env.reset()
+        for i in tqdm(range(num_eval_steps)):
+            with torch.no_grad():
+                actions = policy(obs)
+            env.commands[:, 0] = x_vel_cmd
+            env.commands[:, 1] = y_vel_cmd
+            env.commands[:, 2] = yaw_vel_cmd
+            env.commands[:, 3] = body_height_cmd
+            env.commands[:, 4] = step_frequency_cmd
+            env.commands[:, 5:8] = gait
+            env.commands[:, 8] = 0.5
+            env.commands[:, 9] = footswing_height_cmd
+            env.commands[:, 10] = pitch_cmd
+            env.commands[:, 11] = roll_cmd
+            env.commands[:, 12] = stance_width_cmd
+            obs, rew, done, info = env.step(actions)
+
+            measured_x_vels[i] = env.base_lin_vel[0, 0]
+            joint_positions[i] = env.dof_pos[0, :].cpu()
+            joint_vel[i] = env.dof_vel[0, :].cpu()
+            base_lin_vel[i] = env.base_lin_vel[0, :].cpu()
+            base_ang_vel[i] = env.base_ang_vel[0, :].cpu()
+            base_height[i] = env.root_states[:, 2:3].cpu()
+            # print(base_height[i])
+        
+
+        with h5py.File("./rl_datatset_x_vel{:.2f}_y_vel{:.2f}_yaw_vel{:.2f}.h5".format(x_vel_cmd, y_vel_cmd, yaw_vel_cmd), "w") as hf:
+            transitions = np.concatenate([joint_positions, joint_vel, base_lin_vel, base_ang_vel, base_height], axis=-1)
+            concated_transitions = np.concatenate([transitions[:-1], transitions[1:]], axis=-1)
+            hf.create_dataset("transitions", data=concated_transitions)
+
 
     # plot target and measured forward velocity
-    from matplotlib import pyplot as plt
-    fig, axs = plt.subplots(2, 1, figsize=(12, 5))
-    axs[0].plot(np.linspace(0, num_eval_steps * env.dt, num_eval_steps), measured_x_vels, color='black', linestyle="-", label="Measured")
-    axs[0].plot(np.linspace(0, num_eval_steps * env.dt, num_eval_steps), target_x_vels, color='black', linestyle="--", label="Desired")
-    axs[0].legend()
-    axs[0].set_title("Forward Linear Velocity")
-    axs[0].set_xlabel("Time (s)")
-    axs[0].set_ylabel("Velocity (m/s)")
+    # from matplotlib import pyplot as plt
+    # fig, axs = plt.subplots(2, 1, figsize=(12, 5))
+    # axs[0].plot(np.linspace(0, num_eval_steps * env.dt, num_eval_steps), measured_x_vels, color='black', linestyle="-", label="Measured")
+    # axs[0].plot(np.linspace(0, num_eval_steps * env.dt, num_eval_steps), target_x_vels, color='black', linestyle="--", label="Desired")
+    # axs[0].legend()
+    # axs[0].set_title("Forward Linear Velocity")
+    # axs[0].set_xlabel("Time (s)")
+    # axs[0].set_ylabel("Velocity (m/s)")
 
-    axs[1].plot(np.linspace(0, num_eval_steps * env.dt, num_eval_steps), joint_positions, linestyle="-", label="Measured")
-    axs[1].set_title("Joint Positions")
-    axs[1].set_xlabel("Time (s)")
-    axs[1].set_ylabel("Joint Position (rad)")
+    # axs[1].plot(np.linspace(0, num_eval_steps * env.dt, num_eval_steps), joint_positions, linestyle="-", label="Measured")
+    # axs[1].set_title("Joint Positions")
+    # axs[1].set_xlabel("Time (s)")
+    # axs[1].set_ylabel("Joint Position (rad)")
 
-    plt.tight_layout()
-    plt.show()
+    # plt.tight_layout()
+    # plt.show()
 
 
 if __name__ == '__main__':
     # to see the environment rendering, set headless=False
+    # for x_vel_cmd in [0.5, 1.0, -0.5, -1.0]:
     play_a1(headless=False)
