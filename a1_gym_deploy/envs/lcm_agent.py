@@ -107,8 +107,8 @@ class LCMAgent():
 
         self.joint_idxs = self.se.joint_idxs
 
-        self.gait_indices = np.zeros(self.num_envs, dtype=np.float)
-        self.clock_inputs = np.zeros(self.num_envs, 4, dtype=np.float)
+        self.gait_indices = np.zeros(self.num_envs, dtype=np.float32)
+        self.clock_inputs = np.zeros(self.num_envs, dtype=np.float32)
 
         if "obs_scales" in self.cfg.keys():
             self.obs_scales = self.cfg["obs_scales"]
@@ -220,7 +220,7 @@ class LCMAgent():
         return self.get_obs()
 
     def reset_gait_indices(self):
-        self.gait_indices = np.zeros(self.num_envs, dtype=np.float)
+        self.gait_indices = np.zeros(self.num_envs, dtype=np.float32)
 
     def step(self, actions, hard_reset=False):
         clip_actions = self.cfg["normalization"]["clip_actions"]
