@@ -2,7 +2,6 @@ import time
 
 import lcm
 import numpy as np
-import torch
 
 from a1_gym_deploy.lcm_types.pd_tau_targets_lcmt import pd_tau_targets_lcmt
 
@@ -94,8 +93,8 @@ class LCMAgent():
         print(f"p_gains: {self.p_gains}")
 
         self.commands = np.zeros((1, self.num_commands))
-        self.actions = torch.zeros(12)
-        self.last_actions = torch.zeros(12)
+        self.actions = np.zeros(12)
+        self.last_actions = np.zeros(12)
         self.gravity_vector = np.zeros(3)
         self.dof_pos = np.zeros(12)
         self.dof_vel = np.zeros(12)
@@ -108,8 +107,8 @@ class LCMAgent():
 
         self.joint_idxs = self.se.joint_idxs
 
-        self.gait_indices = torch.zeros(self.num_envs, dtype=torch.float)
-        self.clock_inputs = torch.zeros(self.num_envs, 4, dtype=torch.float)
+        self.gait_indices = np.zeros(self.num_envs, dtype=np.float)
+        self.clock_inputs = np.zeros(self.num_envs, 4, dtype=np.float)
 
         if "obs_scales" in self.cfg.keys():
             self.obs_scales = self.cfg["obs_scales"]
@@ -139,7 +138,7 @@ class LCMAgent():
                              self.commands * self.commands_scale,
                              (self.dof_pos - self.default_dof_pos).reshape(1, -1) * self.obs_scales["dof_pos"],
                              self.dof_vel.reshape(1, -1) * self.obs_scales["dof_vel"],
-                             torch.clip(self.actions, -self.cfg["normalization"]["clip_actions"],
+                             np.clip(self.actions, -self.cfg["normalization"]["clip_actions"],
                                         self.cfg["normalization"]["clip_actions"]).cpu().detach().numpy().reshape(1, -1)
                              ), axis=1)
 
@@ -179,8 +178,7 @@ class LCMAgent():
             heights = np.clip(robot_height - 0.5 - self.measured_heights, -1, 1.) * self.obs_scales["height_measurements"]
             ob = np.concatenate((ob, heights), axis=1)
 
-
-        return torch.tensor(ob, device=self.device).float()
+        return np.array(ob)
 
     def get_privileged_observations(self):
         return None
@@ -216,18 +214,18 @@ class LCMAgent():
         lc.publish("pd_plustau_targets", command_for_robot.encode())
 
     def reset(self):
-        self.actions = torch.zeros(12)
+        self.actions = np.zeros(12)
         self.time = time.time()
         self.timestep = 0
         return self.get_obs()
 
     def reset_gait_indices(self):
-        self.gait_indices = torch.zeros(self.num_envs, dtype=torch.float)
+        self.gait_indices = np.zeros(self.num_envs, dtype=np.float)
 
     def step(self, actions, hard_reset=False):
         clip_actions = self.cfg["normalization"]["clip_actions"]
         self.last_actions = self.actions[:]
-        self.actions = torch.clip(actions[0:1, :], -clip_actions, clip_actions)
+        self.actions = np.clip(actions[0:1, :], -clip_actions, clip_actions)
         self.publish_action(self.actions, hard_reset=hard_reset)
         time.sleep(max(self.dt - (time.time() - self.time), 0))
         if self.timestep % 100 == 0: print(f'frq: {1 / (time.time() - self.time)} Hz');
@@ -244,7 +242,7 @@ class LCMAgent():
         else:
             bounds = self.commands[:, 7]
             durations = self.commands[:, 8]
-        self.gait_indices = torch.remainder(self.gait_indices + self.dt * frequencies, 1.0)
+        self.gait_indices = np.remainder(self.gait_indices + self.dt * frequencies, 1.0)
 
         if "pacing_offset" in self.cfg["commands"] and self.cfg["commands"]["pacing_offset"]:
             self.foot_indices = [self.gait_indices + phases + offsets + bounds,
@@ -256,10 +254,10 @@ class LCMAgent():
                                  self.gait_indices + offsets,
                                  self.gait_indices + bounds,
                                  self.gait_indices + phases]
-        self.clock_inputs[:, 0] = torch.sin(2 * np.pi * self.foot_indices[0])
-        self.clock_inputs[:, 1] = torch.sin(2 * np.pi * self.foot_indices[1])
-        self.clock_inputs[:, 2] = torch.sin(2 * np.pi * self.foot_indices[2])
-        self.clock_inputs[:, 3] = torch.sin(2 * np.pi * self.foot_indices[3])
+        self.clock_inputs[:, 0] = np.sin(2 * np.pi * self.foot_indices[0])
+        self.clock_inputs[:, 1] = np.sin(2 * np.pi * self.foot_indices[1])
+        self.clock_inputs[:, 2] = np.sin(2 * np.pi * self.foot_indices[2])
+        self.clock_inputs[:, 3] = np.sin(2 * np.pi * self.foot_indices[3])
 
         #print(self.commands)
 
