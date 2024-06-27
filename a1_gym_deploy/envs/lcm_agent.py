@@ -147,8 +147,7 @@ class LCMAgent():
                             self.last_actions.reshape(1, -1)), axis=1)
 
         if self.cfg["env"]["observe_clock_inputs"]:
-            ob = np.concatenate((ob,
-                            self.clock_inputs), axis=1)
+            ob = np.concatenate((ob, self.clock_inputs.reshape(1, -1)), axis=1)
             # print(self.clock_inputs)
 
         if self.cfg["env"]["observe_vel"]:
