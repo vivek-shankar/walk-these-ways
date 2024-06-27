@@ -1,7 +1,5 @@
-# import isaacgym
-
-# assert isaacgym, "import isaacgym before pytorch"
-import torch
+import numpy as np
+import onnxruntime as ort
 
 
 class HistoryWrapper:
@@ -13,30 +11,29 @@ class HistoryWrapper:
         else:
             self.obs_history_length = self.env.cfg.env.num_observation_history
         self.num_obs_history = self.obs_history_length * self.env.num_obs
-        self.obs_history = torch.zeros(self.env.num_envs, self.num_obs_history, dtype=torch.float,
-                                       device=self.env.device, requires_grad=False)
+        self.obs_history = np.zeros((self.env.num_envs, self.num_obs_history), dtype=np.float32)
         self.num_privileged_obs = self.env.num_privileged_obs
 
     def step(self, action):
         obs, rew, done, info = self.env.step(action)
         privileged_obs = info["privileged_obs"]
 
-        self.obs_history = torch.cat((self.obs_history[:, self.env.num_obs:], obs), dim=-1)
+        self.obs_history = np.concatenate((self.obs_history[:, self.env.num_obs:], obs), axis=-1)
         return {'obs': obs, 'privileged_obs': privileged_obs, 'obs_history': self.obs_history}, rew, done, info
 
     def get_observations(self):
         obs = self.env.get_observations()
         privileged_obs = self.env.get_privileged_observations()
-        self.obs_history = torch.cat((self.obs_history[:, self.env.num_obs:], obs), dim=-1)
+        self.obs_history = np.concatenate((self.obs_history[:, self.env.num_obs:], obs), axis=-1)
         return {'obs': obs, 'privileged_obs': privileged_obs, 'obs_history': self.obs_history}
 
     def get_obs(self):
         obs = self.env.get_obs()
         privileged_obs = self.env.get_privileged_observations()
-        self.obs_history = torch.cat((self.obs_history[:, self.env.num_obs:], obs), dim=-1)
+        self.obs_history = np.concatenate((self.obs_history[:, self.env.num_obs:], obs), axis=-1)
         return {'obs': obs, 'privileged_obs': privileged_obs, 'obs_history': self.obs_history}
 
-    def reset_idx(self, env_ids):  # it might be a problem that this isn't getting called!!
+    def reset_idx(self, env_ids):
         ret = self.env.reset_idx(env_ids)
         self.obs_history[env_ids, :] = 0
         return ret
