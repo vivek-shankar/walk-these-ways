@@ -2,6 +2,8 @@ import glob
 import pickle as pkl
 import lcm
 import sys
+import onnxruntime as ort
+import numpy as np
 
 from a1_gym_deploy.utils.deployment_runner import DeploymentRunner
 from a1_gym_deploy.envs.lcm_agent import LCMAgent
@@ -12,7 +14,9 @@ import pathlib
 
 lc = lcm.LCM("udpm://239.255.76.67:7667?ttl=255")
 
-def load_and_run_policy(label, experiment_name, probe_policy_label=None, max_vel=1.0, max_yaw_vel=1.0, max_vel_probe=1.0):
+
+def load_and_run_policy(label, experiment_name, probe_policy_label=None, max_vel=1.0, max_yaw_vel=1.0,
+                        max_vel_probe=1.0):
     # load agent
     dirs = glob.glob(f"../../runs/{label}/*")
     logdir = sorted(dirs)[0]
@@ -29,7 +33,8 @@ def load_and_run_policy(label, experiment_name, probe_policy_label=None, max_vel
     se = StateEstimator(lc)
 
     control_dt = 0.02
-    command_profile = RCControllerProfile(dt=control_dt, state_estimator=se, x_scale=max_vel, y_scale=0.6, yaw_scale=max_yaw_vel, probe_vel_multiplier=(max_vel_probe / max_vel))
+    command_profile = RCControllerProfile(dt=control_dt, state_estimator=se, x_scale=max_vel, y_scale=0.6,
+                                          yaw_scale=max_yaw_vel, probe_vel_multiplier=(max_vel_probe / max_vel))
 
     hardware_agent = LCMAgent(cfg, se, command_profile)
     se.spin()
@@ -70,17 +75,25 @@ def load_and_run_policy(label, experiment_name, probe_policy_label=None, max_vel
 
     deployment_runner.run(max_steps=max_steps, logging=True)
 
+
 def load_policy(logdir):
-    body = torch.jit.load(logdir + '/checkpoints/body_latest.jit').to('cuda:0')
-    import os
-    adaptation_module = torch.jit.load(logdir + '/checkpoints/body_latest.jit').to('cuda:0')
+    body_sess = ort.InferenceSession(logdir + '/onnx_models/body_model.onnx')
+    adaptation_module_sess = ort.InferenceSession(logdir + '/onnx_models/adaptation_module_model.onnx')
 
     def policy(obs, info):
-        i = 0
-        latent = adaptation_module.forward(obs["obs_history"].to('cuda:0'))
-        action = body.forward(torch.cat((obs["obs_history"].to('cuda:0'), latent), dim=-1)).to('cpu')
-        info['latent'] = latent.to('cpu')
-        return action
+        obs_history = obs["obs_history"].cpu().numpy()
+
+        # Run adaptation module
+        latent = adaptation_module_sess.run(None, {'input': obs_history})[0]
+
+        # Concatenate obs_history and latent
+        obs_latent = np.concatenate((obs_history, latent), axis=-1)
+
+        # Run body model
+        action = body_sess.run(None, {'input': obs_latent})[0]
+
+        info['latent'] = torch.tensor(latent).to('cpu')
+        return torch.tensor(action).to('cpu')
 
     return policy
 
@@ -92,4 +105,5 @@ if __name__ == '__main__':
 
     experiment_name = "example_experiment"
 
-    load_and_run_policy(label, experiment_name=experiment_name, probe_policy_label=probe_policy_label, max_vel=3.0, max_yaw_vel=5.0, max_vel_probe=1.0)
+    load_and_run_policy(label, experiment_name=experiment_name, probe_policy_label=probe_policy_label, max_vel=3.0,
+                        max_yaw_vel=5.0, max_vel_probe=1.0)
