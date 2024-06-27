@@ -139,12 +139,12 @@ class LCMAgent():
                              (self.dof_pos - self.default_dof_pos).reshape(1, -1) * self.obs_scales["dof_pos"],
                              self.dof_vel.reshape(1, -1) * self.obs_scales["dof_vel"],
                              np.clip(self.actions, -self.cfg["normalization"]["clip_actions"],
-                                        self.cfg["normalization"]["clip_actions"]).cpu().detach().numpy().reshape(1, -1)
+                                        self.cfg["normalization"]["clip_actions"]).reshape(1, -1)
                              ), axis=1)
 
         if self.cfg["env"]["observe_two_prev_actions"]:
             ob = np.concatenate((ob,
-                            self.last_actions.cpu().detach().numpy().reshape(1, -1)), axis=1)
+                            self.last_actions.reshape(1, -1)), axis=1)
 
         if self.cfg["env"]["observe_clock_inputs"]:
             ob = np.concatenate((ob,
@@ -176,7 +176,7 @@ class LCMAgent():
                 (len(self.cfg["terrain"]["measured_points_x"]), len(self.cfg["terrain"]["measured_points_y"]))).reshape(
                 1, -1)
             heights = np.clip(robot_height - 0.5 - self.measured_heights, -1, 1.) * self.obs_scales["height_measurements"]
-            ob = np.concatenate((ob, heights), axis=1)
+            ob = np.concatenate((ob, heights.reshape(1, -1)), axis=1)
 
         return np.array(ob)
 
@@ -187,7 +187,7 @@ class LCMAgent():
 
         command_for_robot = pd_tau_targets_lcmt()
         self.joint_pos_target = \
-            (action[0, :12].detach().cpu().numpy() * self.cfg["control"]["action_scale"]).flatten()
+            (action[0, :12] * self.cfg["control"]["action_scale"]).flatten()
         self.joint_pos_target[[0, 3, 6, 9]] *= self.cfg["control"]["hip_scale_reduction"]
         # self.joint_pos_target[[0, 3, 6, 9]] *= -1
         self.joint_pos_target = self.joint_pos_target
