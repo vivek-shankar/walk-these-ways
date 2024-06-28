@@ -8,7 +8,6 @@ from a1_gym_deploy.lcm_types.pd_tau_targets_lcmt import pd_tau_targets_lcmt
 
 lc = lcm.LCM("udpm://239.255.76.67:7667?ttl=255")
 
-
 def class_to_dict(obj) -> dict:
     if not hasattr(obj, "__dict__"):
         return obj
@@ -25,7 +24,6 @@ def class_to_dict(obj) -> dict:
             element = class_to_dict(val)
         result[key] = element
     return result
-
 
 class LCMAgent():
     def __init__(self, cfg, se, command_profile):
@@ -54,11 +52,9 @@ class LCMAgent():
             [self.obs_scales["lin_vel"], self.obs_scales["lin_vel"],
              self.obs_scales["ang_vel"], self.obs_scales["body_height_cmd"], 1, 1, 1, 1, 1,
              self.obs_scales["footswing_height_cmd"], self.obs_scales["body_pitch_cmd"],
-             # 0, self.obs_scales["body_pitch_cmd"],
              self.obs_scales["body_roll_cmd"], self.obs_scales["stance_width_cmd"],
              self.obs_scales["stance_length_cmd"], self.obs_scales["aux_reward_cmd"], 1, 1, 1, 1, 1, 1
              ])[:self.num_commands]
-
 
         joint_names = [
             "FL_hip_joint", "FL_thigh_joint", "FL_calf_joint",
@@ -164,26 +160,22 @@ class LCMAgent():
                              (self.dof_pos - self.default_dof_pos).reshape(1, -1) * self.obs_scales["dof_pos"],
                              self.dof_vel.reshape(1, -1) * self.obs_scales["dof_vel"],
                              np.clip(self.actions, -self.cfg["normalization"]["clip_actions"],
-                                        self.cfg["normalization"]["clip_actions"]).reshape(1, -1)
+                                     self.cfg["normalization"]["clip_actions"]).reshape(1, -1)
                              ), axis=1)
 
         if self.cfg["env"]["observe_two_prev_actions"]:
-            ob = np.concatenate((ob,
-                            self.last_actions.reshape(1, -1)), axis=1)
+            ob = np.concatenate((ob, self.last_actions.reshape(1, -1)), axis=1)
 
         if self.cfg["env"]["observe_clock_inputs"]:
-            ob = np.concatenate((ob, self.clock_inputs.reshape(1, -1)), axis=1)
+            ob = np.concatenate((ob, self.clock_inputs), axis=1)
 
         if self.cfg["env"]["observe_vel"]:
-            ob = np.concatenate(
-                (self.body_linear_vel.reshape(1, -1) * self.obs_scales["lin_vel"],
-                 self.body_angular_vel.reshape(1, -1) * self.obs_scales["ang_vel"],
-                 ob), axis=1)
+            ob = np.concatenate((self.body_linear_vel.reshape(1, -1) * self.obs_scales["lin_vel"],
+                                 self.body_angular_vel.reshape(1, -1) * self.obs_scales["ang_vel"],
+                                 ob), axis=1)
 
         if self.cfg["env"]["observe_only_lin_vel"]:
-            ob = np.concatenate(
-                (self.body_linear_vel.reshape(1, -1) * self.obs_scales["lin_vel"],
-                 ob), axis=1)
+            ob = np.concatenate((self.body_linear_vel.reshape(1, -1) * self.obs_scales["lin_vel"], ob), axis=1)
 
         if self.cfg["env"]["observe_yaw"]:
             heading = self.se.get_yaw()
@@ -195,13 +187,11 @@ class LCMAgent():
 
         if "terrain" in self.cfg.keys() and self.cfg["terrain"]["measure_heights"]:
             robot_height = 0.25
-            self.measured_heights = np.zeros(
-                (len(self.cfg["terrain"]["measured_points_x"]), len(self.cfg["terrain"]["measured_points_y"]))).reshape(
-                1, -1)
+            self.measured_heights = np.zeros((len(self.cfg["terrain"]["measured_points_x"]), len(self.cfg["terrain"]["measured_points_y"])))
             heights = np.clip(robot_height - 0.5 - self.measured_heights, -1, 1.) * self.obs_scales["height_measurements"]
-            ob = np.concatenate((ob, heights.reshape(1, -1)), axis=1)
+            ob = np.concatenate((ob, heights), axis=1)
 
-        return np.array(ob)
+        return ob
 
     def get_privileged_observations(self):
         return None
@@ -209,8 +199,7 @@ class LCMAgent():
     def publish_action(self, action, hard_reset=False):
 
         command_for_robot = pd_tau_targets_lcmt()
-        self.joint_pos_target = \
-            (action[0, :12] * self.cfg["control"]["action_scale"]).flatten()
+        self.joint_pos_target = (action[0, :12] * self.cfg["control"]["action_scale"]).flatten()
         self.joint_pos_target[[0, 3, 6, 9]] *= self.cfg["control"]["hip_scale_reduction"]
         self.joint_pos_target += self.default_dof_pos
         joint_pos_target = self.joint_pos_target[self.joint_idxs]
@@ -247,7 +236,8 @@ class LCMAgent():
         self.actions = np.clip(actions[0:1, :], -clip_actions, clip_actions)
         self.publish_action(self.actions, hard_reset=hard_reset)
         time.sleep(max(self.dt - (time.time() - self.time), 0))
-        if self.timestep % 100 == 0: print(f'frq: {1 / (time.time() - self.time)} Hz')
+        if self.timestep % 100 == 0:
+            print(f'frq: {1 / (time.time() - self.time)} Hz')
         self.time = time.time()
         obs = self.get_obs()
 
@@ -296,3 +286,4 @@ class LCMAgent():
 
         self.timestep += 1
         return obs, None, None, infos
+
