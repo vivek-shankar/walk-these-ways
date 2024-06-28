@@ -141,7 +141,7 @@ class DeploymentRunner:
         try:
             for i in range(max_steps):
                 print(i)
-                print(control_obs.size())
+                #print(control_obs)
                 policy_info = {}
                 action = self.policy(control_obs, policy_info)
 

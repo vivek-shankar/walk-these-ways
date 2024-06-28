@@ -18,7 +18,7 @@ lc = lcm.LCM("udpm://239.255.76.67:7667?ttl=255")
 def load_and_run_policy(label, experiment_name, probe_policy_label=None, max_vel=1.0, max_yaw_vel=1.0,
                         max_vel_probe=1.0):
     # load agent
-    dirs = glob.glob(f"../../runs/{label}/*")
+    dirs = glob.glob(f"../../runs/gait-conditioned-agility/pretrain-a1/train/081719.645276")
     logdir = sorted(dirs)[0]
     print(logdir)
 
@@ -80,8 +80,15 @@ def load_policy(logdir):
     body_sess = ort.InferenceSession(logdir + '/onnx_models/body_model.onnx')
     adaptation_module_sess = ort.InferenceSession(logdir + '/onnx_models/adaptation_module_model.onnx')
 
+
     def policy(obs, info):
-        obs_history = obs["obs_history"].cpu().numpy()
+        obs_history = obs["obs_history"] #.cpu().numpy()
+        print("inputs ", obs_history.shape)
+        obs_history = np.array(obs_history, dtype=np.float32)
+        priv_obs = obs["privileged_obs"]
+        priv_obs = np.array(priv_obs, dtype=np.float32)
+
+        print("privilaged obs ", priv_obs.shape," hist shape ", obs_history.shape)
 
         # Run adaptation module
         latent = adaptation_module_sess.run(None, {'input': obs_history})[0]
@@ -92,8 +99,8 @@ def load_policy(logdir):
         # Run body model
         action = body_sess.run(None, {'input': obs_latent})[0]
 
-        info['latent'] = torch.tensor(latent).to('cpu')
-        return torch.tensor(action).to('cpu')
+        info['latent'] = latent #torch.tensor(latent).to('cpu')
+        return action #torch.tensor(action).to('cpu')
 
     return policy
 

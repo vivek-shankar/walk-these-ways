@@ -38,6 +38,7 @@ class LCMAgent():
         self.num_obs = self.cfg["env"]["num_observations"]
         self.num_envs = 1
         self.num_privileged_obs = self.cfg["env"]["num_privileged_obs"]
+        print("Privilaged obs: ",self.num_privileged_obs)
         self.num_actions = self.cfg["env"]["num_actions"]
         self.num_commands = self.cfg["commands"]["num_commands"]
 
@@ -170,7 +171,7 @@ class LCMAgent():
         return np.array(ob)
 
     def get_privileged_observations(self):
-        return None
+        return np.array([np.nan,np.nan])
 
     def publish_action(self, action, hard_reset=False):
 
