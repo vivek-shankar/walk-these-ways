@@ -109,7 +109,7 @@ class LCMAgent():
         self.joint_idxs = self.se.joint_idxs
 
         self.gait_indices = np.zeros(self.num_envs, dtype=np.float32)
-        self.clock_inputs = np.zeros(self.num_envs, dtype=np.float32)
+        self.clock_inputs = np.zeros((self.num_envs, 4), dtype=np.float32)
 
         # Allocate GPU memory for numpy arrays
         self.commands_gpu = cuda.mem_alloc(self.commands.nbytes)
