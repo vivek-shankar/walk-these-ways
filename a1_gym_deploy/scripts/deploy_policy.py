@@ -2,8 +2,10 @@ import glob
 import pickle as pkl
 import lcm
 import sys
-import onnxruntime as ort
 import numpy as np
+import tensorrt as trt
+import pycuda.driver as cuda
+import pycuda.autoinit
 
 from a1_gym_deploy.utils.deployment_runner import DeploymentRunner
 from a1_gym_deploy.envs.lcm_agent import LCMAgent
@@ -22,7 +24,7 @@ def load_and_run_policy(label, experiment_name, probe_policy_label=None, max_vel
     logdir = sorted(dirs)[0]
     print(logdir)
 
-    with open(logdir+"/parameters.pkl", 'rb') as file:
+    with open(logdir + "/parameters.pkl", 'rb') as file:
         pkl_cfg = pkl.load(file)
         print(pkl_cfg.keys())
         cfg = pkl_cfg["Cfg"]
@@ -76,24 +78,68 @@ def load_and_run_policy(label, experiment_name, probe_policy_label=None, max_vel
     deployment_runner.run(max_steps=max_steps, logging=True)
 
 
+def load_engine(engine_file_path):
+    TRT_LOGGER = trt.Logger(trt.Logger.WARNING)
+    with open(engine_file_path, 'rb') as f, trt.Runtime(TRT_LOGGER) as runtime:
+        return runtime.deserialize_cuda_engine(f.read())
+
+
+def allocate_buffers(engine):
+    inputs = []
+    outputs = []
+    bindings = []
+    stream = cuda.Stream()
+
+    for binding in engine:
+        size = trt.volume(engine.get_binding_shape(binding)) * engine.max_batch_size
+        dtype = trt.nptype(engine.get_binding_dtype(binding))
+        host_mem = cuda.pagelocked_empty(size, dtype)
+        device_mem = cuda.mem_alloc(host_mem.nbytes)
+        bindings.append(int(device_mem))
+        if engine.binding_is_input(binding):
+            inputs.append((host_mem, device_mem))
+        else:
+            outputs.append((host_mem, device_mem))
+    return inputs, outputs, bindings, stream
+
+
+def do_inference(context, bindings, inputs, outputs, stream, batch_size=1):
+    [cuda.memcpy_htod_async(inp[1], inp[0], stream) for inp in inputs]
+    context.execute_async(batch_size=batch_size, bindings=bindings, stream_handle=stream.handle)
+    [cuda.memcpy_dtoh_async(out[0], out[1], stream) for out in outputs]
+    stream.synchronize()
+    return [out[0] for out in outputs]
+
+
 def load_policy(logdir):
-    body_sess = ort.InferenceSession(logdir + '/onnx_models/body_model.onnx')
-    adaptation_module_sess = ort.InferenceSession(logdir + '/onnx_models/adaptation_module_model.onnx')
+    body_engine_file_path = logdir + '/engines/body_model.engine'
+    adaptation_module_engine_file_path = logdir + '/engines/adaptation_module_model.engine'
+
+    body_engine = load_engine(body_engine_file_path)
+    adaptation_module_engine = load_engine(adaptation_module_engine_file_path)
+
+    body_context = body_engine.create_execution_context()
+    adaptation_module_context = adaptation_module_engine.create_execution_context()
+
+    body_inputs, body_outputs, body_bindings, body_stream = allocate_buffers(body_engine)
+    adaptation_module_inputs, adaptation_module_outputs, adaptation_module_bindings, adaptation_module_stream = allocate_buffers(adaptation_module_engine)
 
     def policy(obs, info):
-        obs_history = obs["obs_history"].cpu().numpy()
+        obs_history = obs["obs_history"]  # Assuming obs["obs_history"] is already a numpy array
 
         # Run adaptation module
-        latent = adaptation_module_sess.run(None, {'input': obs_history})[0]
+        np.copyto(adaptation_module_inputs[0][0], obs_history.ravel())
+        latent = do_inference(adaptation_module_context, adaptation_module_bindings, adaptation_module_inputs, adaptation_module_outputs, adaptation_module_stream)[0]
 
         # Concatenate obs_history and latent
         obs_latent = np.concatenate((obs_history, latent), axis=-1)
 
         # Run body model
-        action = body_sess.run(None, {'input': obs_latent})[0]
+        np.copyto(body_inputs[0][0], obs_latent.ravel())
+        action = do_inference(body_context, body_bindings, body_inputs, body_outputs, body_stream)[0]
 
-        info['latent'] = torch.tensor(latent).to('cpu')
-        return torch.tensor(action).to('cpu')
+        info['latent'] = latent  # Use numpy array for latent
+        return action  # Return numpy array for action
 
     return policy
 
@@ -107,3 +153,4 @@ if __name__ == '__main__':
 
     load_and_run_policy(label, experiment_name=experiment_name, probe_policy_label=probe_policy_label, max_vel=3.0,
                         max_yaw_vel=5.0, max_vel_probe=1.0)
+

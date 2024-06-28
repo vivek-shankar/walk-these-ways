@@ -1,7 +1,8 @@
 import time
-
 import lcm
 import numpy as np
+import pycuda.driver as cuda
+import pycuda.autoinit
 
 from a1_gym_deploy.lcm_types.pd_tau_targets_lcmt import pd_tau_targets_lcmt
 
@@ -92,23 +93,39 @@ class LCMAgent():
 
         print(f"p_gains: {self.p_gains}")
 
-        self.commands = np.zeros((1, self.num_commands))
-        self.actions = np.zeros(12)
-        self.last_actions = np.zeros(12)
-        self.gravity_vector = np.zeros(3)
-        self.dof_pos = np.zeros(12)
-        self.dof_vel = np.zeros(12)
-        self.body_linear_vel = np.zeros(3)
-        self.body_angular_vel = np.zeros(3)
-        self.joint_pos_target = np.zeros(12)
-        self.joint_vel_target = np.zeros(12)
-        self.torques = np.zeros(12)
-        self.contact_state = np.ones(4)
+        self.commands = np.zeros((1, self.num_commands), dtype=np.float32)
+        self.actions = np.zeros(12, dtype=np.float32)
+        self.last_actions = np.zeros(12, dtype=np.float32)
+        self.gravity_vector = np.zeros(3, dtype=np.float32)
+        self.dof_pos = np.zeros(12, dtype=np.float32)
+        self.dof_vel = np.zeros(12, dtype=np.float32)
+        self.body_linear_vel = np.zeros(3, dtype=np.float32)
+        self.body_angular_vel = np.zeros(3, dtype=np.float32)
+        self.joint_pos_target = np.zeros(12, dtype=np.float32)
+        self.joint_vel_target = np.zeros(12, dtype=np.float32)
+        self.torques = np.zeros(12, dtype=np.float32)
+        self.contact_state = np.ones(4, dtype=np.float32)
 
         self.joint_idxs = self.se.joint_idxs
 
         self.gait_indices = np.zeros(self.num_envs, dtype=np.float32)
         self.clock_inputs = np.zeros(self.num_envs, dtype=np.float32)
+
+        # Allocate GPU memory for numpy arrays
+        self.commands_gpu = cuda.mem_alloc(self.commands.nbytes)
+        self.actions_gpu = cuda.mem_alloc(self.actions.nbytes)
+        self.last_actions_gpu = cuda.mem_alloc(self.last_actions.nbytes)
+        self.gravity_vector_gpu = cuda.mem_alloc(self.gravity_vector.nbytes)
+        self.dof_pos_gpu = cuda.mem_alloc(self.dof_pos.nbytes)
+        self.dof_vel_gpu = cuda.mem_alloc(self.dof_vel.nbytes)
+        self.body_linear_vel_gpu = cuda.mem_alloc(self.body_linear_vel.nbytes)
+        self.body_angular_vel_gpu = cuda.mem_alloc(self.body_angular_vel.nbytes)
+        self.joint_pos_target_gpu = cuda.mem_alloc(self.joint_pos_target.nbytes)
+        self.joint_vel_target_gpu = cuda.mem_alloc(self.joint_vel_target.nbytes)
+        self.torques_gpu = cuda.mem_alloc(self.torques.nbytes)
+        self.contact_state_gpu = cuda.mem_alloc(self.contact_state.nbytes)
+        self.gait_indices_gpu = cuda.mem_alloc(self.gait_indices.nbytes)
+        self.clock_inputs_gpu = cuda.mem_alloc(self.clock_inputs.nbytes)
 
         if "obs_scales" in self.cfg.keys():
             self.obs_scales = self.cfg["obs_scales"]
@@ -127,12 +144,20 @@ class LCMAgent():
         self.commands[:, :] = cmds[:self.num_commands]
         if reset_timer:
             self.reset_gait_indices()
-        #else:
-        #    self.commands[:, 0:3] = self.command_profile.get_command(self.timestep * self.dt)[0:3]
         self.dof_pos = self.se.get_dof_pos()
         self.dof_vel = self.se.get_dof_vel()
         self.body_linear_vel = self.se.get_body_linear_vel()
         self.body_angular_vel = self.se.get_body_angular_vel()
+
+        # Move numpy data to GPU
+        cuda.memcpy_htod(self.commands_gpu, self.commands)
+        cuda.memcpy_htod(self.dof_pos_gpu, self.dof_pos)
+        cuda.memcpy_htod(self.dof_vel_gpu, self.dof_vel)
+        cuda.memcpy_htod(self.body_linear_vel_gpu, self.body_linear_vel)
+        cuda.memcpy_htod(self.body_angular_vel_gpu, self.body_angular_vel)
+        cuda.memcpy_htod(self.gravity_vector_gpu, self.gravity_vector)
+        cuda.memcpy_htod(self.actions_gpu, self.actions)
+        cuda.memcpy_htod(self.last_actions_gpu, self.last_actions)
 
         ob = np.concatenate((self.gravity_vector.reshape(1, -1),
                              self.commands * self.commands_scale,
@@ -148,7 +173,6 @@ class LCMAgent():
 
         if self.cfg["env"]["observe_clock_inputs"]:
             ob = np.concatenate((ob, self.clock_inputs.reshape(1, -1)), axis=1)
-            # print(self.clock_inputs)
 
         if self.cfg["env"]["observe_vel"]:
             ob = np.concatenate(
@@ -188,12 +212,9 @@ class LCMAgent():
         self.joint_pos_target = \
             (action[0, :12] * self.cfg["control"]["action_scale"]).flatten()
         self.joint_pos_target[[0, 3, 6, 9]] *= self.cfg["control"]["hip_scale_reduction"]
-        # self.joint_pos_target[[0, 3, 6, 9]] *= -1
-        self.joint_pos_target = self.joint_pos_target
         self.joint_pos_target += self.default_dof_pos
         joint_pos_target = self.joint_pos_target[self.joint_idxs]
         self.joint_vel_target = np.zeros(12)
-        # print(f'cjp {self.joint_pos_target}')
 
         command_for_robot.q_des = joint_pos_target
         command_for_robot.qd_des = self.joint_vel_target
@@ -207,13 +228,12 @@ class LCMAgent():
         if hard_reset:
             command_for_robot.id = -1
 
-
         self.torques = (self.joint_pos_target - self.dof_pos) * self.p_gains + (self.joint_vel_target - self.dof_vel) * self.d_gains
 
         lc.publish("pd_plustau_targets", command_for_robot.encode())
 
     def reset(self):
-        self.actions = np.zeros(12)
+        self.actions = np.zeros(12, dtype=np.float32)
         self.time = time.time()
         self.timestep = 0
         return self.get_obs()
@@ -227,7 +247,7 @@ class LCMAgent():
         self.actions = np.clip(actions[0:1, :], -clip_actions, clip_actions)
         self.publish_action(self.actions, hard_reset=hard_reset)
         time.sleep(max(self.dt - (time.time() - self.time), 0))
-        if self.timestep % 100 == 0: print(f'frq: {1 / (time.time() - self.time)} Hz');
+        if self.timestep % 100 == 0: print(f'frq: {1 / (time.time() - self.time)} Hz')
         self.time = time.time()
         obs = self.get_obs()
 
@@ -258,7 +278,8 @@ class LCMAgent():
         self.clock_inputs[:, 2] = np.sin(2 * np.pi * self.foot_indices[2])
         self.clock_inputs[:, 3] = np.sin(2 * np.pi * self.foot_indices[3])
 
-        #print(self.commands)
+        # Move clock inputs to GPU
+        cuda.memcpy_htod(self.clock_inputs_gpu, self.clock_inputs)
 
         infos = {"joint_pos": self.dof_pos[np.newaxis, :],
                  "joint_vel": self.dof_vel[np.newaxis, :],

@@ -20,7 +20,7 @@ def convert_jit_to_onnx(jit_model_path, onnx_model_path, dummy_input, input_name
 
 # 设置模型文件路径
 
-label = "gait-conditioned-agility/pretain-a1/train"
+label = "gait-conditioned-agility/pretain-a1/train/081719.645276"
 dirs = glob.glob(f"../../runs/{label}/*")
 logdir = sorted(dirs)[0]
 print(logdir)

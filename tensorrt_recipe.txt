@@ -1,0 +1,10 @@
+sudo apt-get update
+sudo apt-get install libnvinfer6 libnvinfer-dev libnvinfer-plugin6
+sudo apt-get install uff-converter-tf
+sudo apt-get install graphsurgeon-tf
+sudo apt-get install python3-libnvinfer
+
+pip3 install onnx-graphsurgeon
+
+sudo apt-get install build-essential python3-dev python3-setuptools libboost-python-dev libboost-thread-dev
+pip3 install pycuda==2019.1.2
