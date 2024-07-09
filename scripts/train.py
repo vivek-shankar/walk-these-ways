@@ -123,6 +123,7 @@ def train_a1(headless=True):
     Cfg.reward_scales.base_height = 0.0
     Cfg.rewards.base_height_target = 0.30
     Cfg.reward_scales.estimation_bonus = 0.0
+    Cfg.reward_scales.stand_still = -0.0
     Cfg.reward_scales.raibert_heuristic = -10.0
     Cfg.reward_scales.feet_impact_vel = -0.0
     Cfg.reward_scales.feet_clearance = -0.0

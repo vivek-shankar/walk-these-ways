@@ -330,6 +330,7 @@ class Cfg(PrefixProto, cli=False):
         base_motion = 0.
         feet_impact_vel = 0.0
         raibert_heuristic = 0.0
+        stand_still = -0.0
 
     class normalization(PrefixProto, cli=False):
         clip_observations = 100.

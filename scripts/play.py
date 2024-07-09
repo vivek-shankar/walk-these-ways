@@ -33,6 +33,8 @@ def load_env(label, headless=False):
     dirs = glob.glob(f"./runs/{label}/*")
     logdir = sorted(dirs)[-1]
 
+    print(f"loading: {logdir}")
+
     with open(logdir + "/parameters.pkl", 'rb') as file:
         pkl_cfg = pkl.load(file)
         print(pkl_cfg.keys())
@@ -90,6 +92,7 @@ def load_env(label, headless=False):
 
 
 def play_a1(headless=True, x_vel_cmds=[-1.0, -0.5, 0.5, 1.0], y_vel_cmds=[-1.0, -0.5, 0.5, 1.0], yaw_vel_cmds=[-1.0, -0.5, 0.5, 1.0]):
+# def play_a1(headless=True, x_vel_cmds=[0.0, -0.5, 0.5, 1.0], y_vel_cmds=[0.0, -0.5, 0.5, 1.0], yaw_vel_cmds=[0.0, -0.5, 0.5, 1.0]):
     from ml_logger import logger
 
     from pathlib import Path
@@ -97,7 +100,8 @@ def play_a1(headless=True, x_vel_cmds=[-1.0, -0.5, 0.5, 1.0], y_vel_cmds=[-1.0, 
     import glob
     import os
 
-    label = "gait-conditioned-agility/2023-09-04/train"
+    # label = "gait-conditioned-agility/2023-09-04/train"
+    label = "gait-conditioned-agility/2024-07-09/train"
 
     env, policy = load_env(label, headless=headless)
     print(env.p_gains)
@@ -110,9 +114,9 @@ def play_a1(headless=True, x_vel_cmds=[-1.0, -0.5, 0.5, 1.0], y_vel_cmds=[-1.0, 
 
     # x_vel_cmd, y_vel_cmd, yaw_vel_cmd = 1.0, 0.0, 0.0
     body_height_cmd = 0.0
-    step_frequency_cmd = 3.0
-    gait = torch.tensor(gaits["trotting"])
-    footswing_height_cmd = 0.12
+    step_frequency_cmd = 0.0  # 3.0
+    gait = torch.tensor(gaits["pacing"])
+    footswing_height_cmd = 0.0  # 0.12
     pitch_cmd = 0.0
     roll_cmd = 0.0
     stance_width_cmd = 0.25
