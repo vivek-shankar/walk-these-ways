@@ -129,7 +129,8 @@ class CoRLRewards:
         foot_height = (self.env.foot_positions[:, :, 2]).view(self.env.num_envs, -1)# - reference_heights
         target_height = self.env.commands[:, 9].unsqueeze(1) * phases + 0.02 # offset for foot radius 2cm
         rew_foot_clearance = torch.square(target_height - foot_height) * (1 - self.env.desired_contact_states)
-        return torch.sum(rew_foot_clearance, dim=1) * (torch.norm(self.env.commands[:, :3], dim=1) > 0.1)
+        res = torch.sum(rew_foot_clearance, dim=1)
+        return res * torch.minimum(torch.norm(self.env.commands[:, :2], dim=1)/0.1, torch.ones_like(res))
 
     def _reward_feet_impact_vel(self):
         prev_foot_velocities = self.env.prev_foot_velocities[:, :, 2].view(self.env.num_envs, -1)
@@ -160,7 +161,8 @@ class CoRLRewards:
     
     def _reward_stand_still(self):
         # Penalize motion at zero commands
-        return torch.sum(torch.abs(self.env.dof_pos - self.env.default_dof_pos), dim=1) * (torch.norm(self.env.commands[:, :2], dim=1) < 0.1)
+        res = torch.sum(torch.abs(self.env.dof_pos - self.env.default_dof_pos), dim=1)
+        return res * torch.minimum(torch.norm(self.env.commands[:, :2], dim=1)/0.1, torch.ones_like(res))
 
     def _reward_raibert_heuristic(self):
         cur_footsteps_translated = self.env.foot_positions - self.env.base_pos.unsqueeze(1)
@@ -201,6 +203,7 @@ class CoRLRewards:
 
         err_raibert_heuristic = torch.abs(desired_footsteps_body_frame - footsteps_in_body_frame[:, :, 0:2])
 
-        reward = torch.sum(torch.square(err_raibert_heuristic), dim=(1, 2)) * (torch.norm(self.env.commands[:, :3], dim=1) > 0.1)
+        res = torch.sum(torch.square(err_raibert_heuristic), dim=(1, 2))
+        reward = res * torch.minimum(torch.norm(self.env.commands[:, :2], dim=1)/0.1, torch.ones_like(res))
 
         return reward
