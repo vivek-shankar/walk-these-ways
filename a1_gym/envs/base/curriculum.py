@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from matplotlib import pyplot as plt
+# from matplotlib import pyplot as plt
 
 
 def is_met(scale, l2_err, threshold):
@@ -177,5 +177,5 @@ if __name__ == '__main__':
 
     samples, bins = r.sample(10_000)
 
-    plt.scatter(*samples.T[:2])
-    plt.show()
+    # plt.scatter(*samples.T[:2])
+    # plt.show()
