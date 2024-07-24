@@ -91,7 +91,7 @@ def load_env(label, headless=False):
     return env, policy
 
 
-def play_a1(headless=True, x_vel_cmds=[-1.0, -0.5, 0.5, 1.0], y_vel_cmds=[-1.0, -0.5, 0.5, 1.0], yaw_vel_cmds=[-1.0, -0.5, 0.5, 1.0]):
+def play_a1(headless=True, x_vel_cmds=[0.5, 1.0], y_vel_cmds=[0.5, 1.0], yaw_vel_cmds=[0.0, 0.5, 1.0]):
 # def play_a1(headless=True, x_vel_cmds=[0.0, -0.5, 0.5, 1.0], y_vel_cmds=[0.0, -0.5, 0.5, 1.0], yaw_vel_cmds=[0.0, -0.5, 0.5, 1.0]):
     from ml_logger import logger
 
@@ -101,7 +101,7 @@ def play_a1(headless=True, x_vel_cmds=[-1.0, -0.5, 0.5, 1.0], y_vel_cmds=[-1.0, 
     import os
 
     # label = "gait-conditioned-agility/2023-09-04/train"
-    label = "gait-conditioned-agility/2024-07-09/train"
+    label = "gait-conditioned-agility/2024-07-22/train"
 
     env, policy = load_env(label, headless=headless)
     print(env.p_gains)
