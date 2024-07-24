@@ -43,7 +43,7 @@ class HistoryWrapper(gym.Wrapper):
 
 if __name__ == "__main__":
     from tqdm import trange
-    import matplotlib.pyplot as plt
+    # import matplotlib.pyplot as plt
 
     import ml_logger as logger
 
@@ -68,5 +68,5 @@ if __name__ == "__main__":
         print(f"obs_history: {obs['obs_history']}")
 
         img = env.render('rgb_array')
-        plt.imshow(img)
-        plt.show()
+        # plt.imshow(img)
+        # plt.show()

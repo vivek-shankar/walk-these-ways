@@ -1,7 +1,7 @@
 import isaacgym
 
 assert isaacgym
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import torch
 from tqdm import trange
 
@@ -190,8 +190,8 @@ def run_env(render=False, headless=False):
 
     if render and headless:
         img = env.render(mode="rgb_array")
-        plt.imshow(img)
-        plt.show()
+        # plt.imshow(img)
+        # plt.show()
         print("Show the first frame and exit.")
         exit()
 

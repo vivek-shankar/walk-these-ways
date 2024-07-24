@@ -219,8 +219,8 @@ class Runner:
                 mean_adaptation_module_test_loss=mean_adaptation_module_test_loss
             )
 
-            if RunnerArgs.save_video_interval:
-                self.log_video(it)
+            # if RunnerArgs.save_video_interval:
+            #     self.log_video(it)
 
             self.tot_timesteps += self.num_steps_per_env * self.env.num_envs
             if logger.every(RunnerArgs.log_freq, "iteration", start_on=1):
